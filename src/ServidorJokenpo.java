@@ -1,11 +1,11 @@
 import java.io.*;
 import java.net.*;
-import java.util.Random;
 import java.util.concurrent.*;
 
 public class ServidorJokenpo {
     private static ExecutorService executor = Executors.newCachedThreadPool();
     private static ServerSocket servidorSocket;
+    private static BlockingQueue<Socket> filaJogadores = new LinkedBlockingQueue<>();
 
     public static void main(String[] args) {
         int porta = obterPorta();
@@ -57,13 +57,17 @@ class AtendeCliente implements Runnable {
                 jogadorVsCPU(entrada, saida);
             } else if ("2".equals(modo)) {
                 saida.println("Aguardando outro jogador...");
-                Socket jogador2Socket = servidorSocket.accept();
-                saida.println("Outro jogador conectado. Iniciando o jogo...");
-                new Thread(new Jogo(clienteSocket, jogador2Socket)).start();
+                ServidorJokenpo.filaJogadores.put(clienteSocket);
+
+                if (ServidorJokenpo.filaJogadores.size() >= 2) {
+                    Socket jogador1Socket = ServidorJokenpo.filaJogadores.take();
+                    Socket jogador2Socket = ServidorJokenpo.filaJogadores.take();
+                    new Thread(new Jogo(jogador1Socket, jogador2Socket)).start();
+                }
             } else {
                 saida.println("Modo inválido.");
             }
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
     }
